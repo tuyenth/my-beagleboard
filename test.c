@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
 				adat_rx_tx_odd(bit);
 				wait_bclk_rise();
 			}
-			mix_odd(); // (32 - resolution)/(speed*64) time to act
+			mix_odd(); // (32 - resolution)/(speed*64) time to mix
 			
 			wait_wdclk_fall(); // even channels
 
@@ -108,7 +108,7 @@ int main(int argc, char *argv[])
 				adat_rx_tx_even(bit);
 				wait_bclk_rise();
 			}
-			mix_even(); // (32 - resolution)/(speed*64) time to act
+			mix_even(); // (32 - resolution)/(speed*64) time to mix
 		}
 	}
 
