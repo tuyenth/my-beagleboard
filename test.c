@@ -89,6 +89,7 @@ int main(int argc, char *argv[])
 	
 	while(1)
 	{
+    
 		if (i >= potPeriod)
 		{
 			read_pots();
@@ -104,7 +105,12 @@ int main(int argc, char *argv[])
 				adat_rx_tx_odd(bit);
 				wait_bclk_rise();
 			}
-			mix_odd(); // (32 - resolution)/(speed*64) time to mix
+      /*  
+          Time to mix = (32 - resolution)/(speed*64)
+          For 16 and 48000 Hz, T = 5,2 us
+          For 16 and 44100 Hz, T = 5,6 us
+      */
+			mix_odd(); 
 			
 			wait_wdclk_fall(); // even channels
 
