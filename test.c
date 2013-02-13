@@ -61,7 +61,12 @@ static void adat_rx_tx_even(uint8_t bit)
 	return;
 }
 
-static void mix() 
+static void mix_odd() 
+{
+	return;
+}
+
+static void mix_even() 
 {
 	return;
 }
