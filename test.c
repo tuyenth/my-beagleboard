@@ -1,8 +1,7 @@
 /*
- * SPI testing utility (using spidev driver)
+ * ADAT mixer driver 
  *
- * Copyright (c) 2007  MontaVista Software, Inc.
- * Copyright (c) 2007  Anton Vorontsov <avorontsov@ru.mvista.com>
+ * Copyright (c) 2013  Daniel Lopez-Arozena <dlopezaro@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,31 +24,48 @@
 #define SMP64  0x40
 #define SMP128 0x80
 #define POT_MS 100
+#define FS48K 48000
+#define FS44K 441000
+#define HIGH 1
+#define LOW  0
 
 static const char *device = "/dev/spidev1.1";
-static uint8_t resolution = 16;
-static uint8_t sampling = SMP64;
-static uint16_t speed = 48000;
+static uint8_t wdclk = LOW;       // Fs Clock. (48KHz, 44.1KHz)
+static uint8_t bclk = LOW;        // Data Clock (64 * Fs = 3072KHz, 2822.4KHz)
+static uint8_t resolution = 16;   // sample data resolution (16, 24 bits)
+static uint8_t sampling = SMP64;  // Number of samples buffer (64, 128)
+static uint16_t fs = FS48K;    // Sampling Frequency (Fs) in Hz (48000KHz, 44.1KHz)
 
 static void configure_shit(void)
 {
+//    wake_up_interruptible(&short_queue); /* awake any reading process */
+
 	return;
 }
 
 static void wait_wdclk_rise(void) 
 {
+  if (wdclk == LOW)
+    wait_event_interruptible(wdclk_queue, wdclk == HIGH);
 	return;
 }
 
 static void wait_wdclk_fall(void) 
 {
+  if (wdclk == HIGH)
+    wait_event_interruptible(wdclk_queue, wdclk == LOW);
 	return;
 }
 
 static void wait_bclk_rise(void) 
 {
-	return;
+  if (bclk == LOW)
+    wait_event_interruptible(bclk_queue, bclk == HIGH);
+
+  bclk = LOW;
+  return;
 }
+
 
 static void adat_rx_tx_odd(uint8_t bit) 
 {
@@ -76,52 +92,56 @@ static void read_pots(void)
 	return;
 }
 
+static void adat_io(sampling, resolution)
+{
+	unsigned short n = 0;
+	unsigned short bit = 0;
+
+  for (n = 0 ; n < sampling ; ++n)
+  {
+    wait_wdclk_rise(); // odd channels
+    
+    for (bit = 0 ; bit < resolution ; ++bit)
+    {
+      wait_bclk_rise();
+      adat_rx_tx_odd(bit);
+    }
+    /*  
+        Time to mix = (32 - resolution)/(fs*64)
+        For 16 and 48000 Hz, T = 5,2 us
+        For 16 and 44100 Hz, T = 5,6 us
+    */
+    
+    wait_wdclk_fall(); // even channels
+
+    for (bit = 0 ; bit < resolution ; ++bit)
+    {
+      wait_bclk_rise();
+      adat_rx_tx_even(bit);
+    }
+  }
+}
+
 int main(int argc, char *argv[])
 {
-	int i = 0; 
-	int j = 0;
-	int bit = 0;
-	int potPeriod = speed * POT_MS / 1000; 
+	unsigned short t = 1; 
+	unsigned short n = 0;
+	unsigned short bit = 0;
+	unsigned short potPeriod = fs * POT_MS / 1000; 
 	
 	configure_shit();
-	read_pots();
-	wait_wdclk_fall(); // to sync
+	
+  wait_wdclk_fall(); // to sync
 	
 	while(1)
 	{
-    
-		if (i >= potPeriod)
-		{
-			read_pots();
-			i=0;
-		}
-		
-		for (j = 0 ; j < sampling ; ++j, ++i)
-		{
-			wait_wdclk_rise(); // odd channels
-			
-			for (bit = 0 ; bit < resolution ; ++bit)
-			{
-				adat_rx_tx_odd(bit);
-				wait_bclk_rise();
-			}
-      /*  
-          Time to mix = (32 - resolution)/(speed*64)
-          For 16 and 48000 Hz, T = 5,2 us
-          For 16 and 44100 Hz, T = 5,6 us
-      */
-			mix_odd(); 
-			
-			wait_wdclk_fall(); // even channels
+		if (read_pots(&t))
+			t = potPeriod;
+      
+    adat_io(sampling, resolution);  
 
-			for (bit = 0 ; bit < resolution ; ++bit)
-			{
-				adat_rx_tx_even(bit);
-				wait_bclk_rise();
-			}
-			mix_even(); // (32 - resolution)/(speed*64) time to mix
-		}
-	}
-
+    mix_data(); // Launch thread to mix. Takes sampling time?
+  }
 	return 0;
 }
+
