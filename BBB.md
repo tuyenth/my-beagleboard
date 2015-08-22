@@ -1,0 +1,1 @@
+https://eewiki.net/display/linuxonarm/BeagleBone+Black

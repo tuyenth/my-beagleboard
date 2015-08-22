@@ -1,0 +1,1 @@
+https://www.olimex.com/Products/OLinuXino/A13/A13-OLinuXino-MICRO/
